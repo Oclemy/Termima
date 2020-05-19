@@ -38,7 +38,8 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
         ICallbacks.ISaveListener, ICallbacks.IFetchListener {
 
     private ActivityMainBinding b;
-    private EasyAdapter<Term, ModelGridBinding> adapter;
+    private EasyAdapter<Term, ModelGridBinding> archiveAdapter;
+    private EasyAdapter<Term, ModelGridBinding> dialyAdapter;
     private MainViewModel mv;
     private EditText termTxt, meaningTxt;
     private boolean reachedEnd = false;
@@ -88,7 +89,7 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
      * 2.Setup our recyclerview
      */
     private void setupAdapter() {
-        adapter = new EasyAdapter<Term, ModelGridBinding>(R.layout.model_grid) {
+        archiveAdapter = new EasyAdapter<Term, ModelGridBinding>(R.layout.model_grid) {
             @Override
             public void onBind(@NonNull ModelGridBinding mb, @NonNull Term t) {
                 mb.headerTV.setText(String.format(Locale.getDefault(),"%d. %s", getData().indexOf(t) + 1, t.getTerm()));
@@ -97,9 +98,7 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
 
                 mb.doubleLift.collapse();
 
-                mb.headerTV.setOnClickListener(view -> {
-                    mb.toggleBtn.performClick();
-                });
+                mb.headerTV.setOnClickListener(view -> mb.toggleBtn.performClick());
                 mb.toggleBtn.setOnClickListener(view -> {
                     if (mb.doubleLift.isExpanded()) {
                         mb.toggleBtn.setImageResource(R.drawable.ic_keyboard_arrow_down_white_24dp);
@@ -118,7 +117,32 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
         };
         GridLayoutManager glm = new GridLayoutManager(this, 1);
         b.rv.setLayoutManager(glm);
-        b.rv.setAdapter(adapter);
+        dialyAdapter = archiveAdapter;
+        b.rv.setAdapter(dialyAdapter);
+//        b.rv.setAdapter(archiveAdapter);
+
+    }
+
+    private void addToAdapter(List<Term> terms, EasyAdapter adapter) {
+        List<Term> available = archiveAdapter.getData();
+        boolean found = false;
+        if (available != null && !available.isEmpty()) {
+            for (Term term : terms) {
+                for (Term t : available) {
+                    if (term.getId() == t.getId()) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    adapter.add(term);
+                }
+            }
+        } else {
+            adapter.addAll(terms, true);
+
+        }
+        archiveAdapter.notifyDataSetChanged();
 
     }
 
@@ -126,7 +150,7 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
      * This method will:
      * 1. Create our input dialog. We can use this dialog for either update or delete
      *
-     * @param forEdit
+     * @param forEdit - boolean
      */
     private void createCustomDialog(Boolean forEdit, Term t) {
         Term term = forEdit ? t : new Term();
@@ -151,11 +175,11 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
                     saveBtn.setOnClickListener(view -> {
                         term.setTerm(termTxt.getText().toString());
                         term.setMeaning(meaningTxt.getText().toString());
-                        term.setDate(mv.SELECTED_DATE);
                         if (forEdit) {
                             mv.update(MainActivity.this, term);
                             d.dismiss();
                         } else {
+                            term.setDate(mv.SELECTED_DATE);
                             mv.insert(MainActivity.this, term);
                         }
                     });
@@ -168,11 +192,11 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
      * When our datepicker is selected, we obtain the selected date and
      * filter our data
      *
-     * @param dateSelected
+     * @param dateSelected - selected date
      */
     @Override
     public void onDateSelected(DateTime dateSelected) {
-        adapter.clear(true);
+        archiveAdapter.clear(true);
         String year = String.valueOf(dateSelected.getYear());
         String month = String.valueOf(dateSelected.getMonthOfYear());
         String day = String.valueOf(dateSelected.getDayOfMonth());
@@ -199,13 +223,13 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
             meaningTxt.setText("");
         }
         show(message);
-        adapter.notifyDataSetChanged();
+        archiveAdapter.clear(true);
     }
 
     /**
      * When an error occurs
      *
-     * @param error
+     * @param error - error message
      */
     @Override
     public void onError(String error) {
@@ -215,27 +239,31 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
     /**
      * When our data is loaded
      *
-     * @param terms
+     * @param terms - list of terms
      */
     @Override
     public void onDataFetched(List<Term> terms) {
-        if(!isAfterUpdate){
-            adapter.addAll(terms, true);
-        }else{
-            adapter.clear(true);
-        }
-        isAfterUpdate=false;
-
-        adapter.notifyDataSetChanged();
-
         if (!mv.IS_DAILY_VIEW) {
+            if (isAfterUpdate) {
+                archiveAdapter.notifyDataSetChanged();
+            } else {
+                addToAdapter(terms, archiveAdapter);
+            }
             if (terms.size() > 0) {
                 reachedEnd = false;
             } else {
+                if (!reachedEnd) {
+                    show("No More data. Reached End");
+                }
                 reachedEnd = true;
-                show("No More data. Reached End");
             }
+            archiveAdapter.notifyDataSetChanged();
+        } else {
+            dialyAdapter.clear(true);
+            addToAdapter(terms, dialyAdapter);
         }
+        isAfterUpdate = false;
+
     }
 
     /**
@@ -277,8 +305,6 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
                         if (!reachedEnd && !mv.IS_DAILY_VIEW) {
                             mv.selectAndPaginate(b.rv.getLayoutManager().getItemCount(), ITEMS_PER_PAGE, MainActivity.this);
                         }
-                    } else {
-                        // Scrolling down
                     }
                 }
             }
@@ -292,34 +318,41 @@ public class MainActivity extends AppCompatActivity implements DatePickerListene
         b.addBtn.setOnClickListener(view -> createCustomDialog(false, new Term()));
         b.switchBtn.setOnClickListener(view -> {
             mv.IS_DAILY_VIEW = !mv.IS_DAILY_VIEW;
-            adapter.clear(true);
+
+            // setupAdapter();
+            archiveAdapter.clear(true);
 
             if (mv.IS_DAILY_VIEW) {
+                b.rv.setAdapter(dialyAdapter);
                 mv.selectByDate(mv.SELECTED_DATE, this);
                 b.datePicker.setVisibility(View.VISIBLE);
                 b.searchViewTxt.setVisibility(View.GONE);
             } else {
+                b.rv.setAdapter(archiveAdapter);
                 mv.selectAndPaginate(0, ITEMS_PER_PAGE, this);
                 b.datePicker.setVisibility(View.GONE);
                 b.searchViewTxt.setVisibility(View.VISIBLE);
-                isAfterUpdate =false;
 
             }
         });
-        b.closeBtn.setOnClickListener(view -> {
-            finish();
+        b.refreshBtn.setOnClickListener(view -> {
+            if (mv.IS_DAILY_VIEW) {
+                mv.selectByDate(mv.SELECTED_DATE, this);
+            } else {
+                mv.selectAndPaginate(0, ITEMS_PER_PAGE, MainActivity.this);
+            }
         });
         b.searchViewTxt.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
-                adapter.clear(true);
+                archiveAdapter.clear(true);
                 mv.search(query, MainActivity.this);
                 return false;
             }
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                adapter.clear(true);
+                archiveAdapter.clear(true);
                 mv.search(newText, MainActivity.this);
                 return false;
             }

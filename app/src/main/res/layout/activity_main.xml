@@ -60,12 +60,12 @@
 
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/closeBtn"
+            android:id="@+id/refreshBtn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|left"
             android:layout_margin="16dp"
-            android:src="@android:drawable/ic_delete"
+            android:src="@android:drawable/ic_menu_rotate"
             android:tint="@color/white" />
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -76,6 +76,7 @@
             android:layout_margin="16dp"
             android:src="@drawable/up_bottom"
             android:tint="@color/white" />
+
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/addBtn"
