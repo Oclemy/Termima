@@ -1,0 +1,2 @@
+# Termima
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/8b44270445df4426a4d7553b4e22a959)](https://app.codacy.com/manual/Oclemy/Termima?utm_source=github.com&utm_medium=referral&utm_content=Oclemy/Termima&utm_campaign=Badge_Grade_Settings)
